@@ -1,4 +1,4 @@
-Pod::Spec.new do |s|
+Pod::Spec.new do |spec|
   spec.name         = 'EaseUI'
   spec.version      = '3.5.3'
   spec.license       = { :type => 'Copyright', :text => 'EaseMob Inc. 2017' }
@@ -20,5 +20,4 @@ Pod::Spec.new do |s|
   spec.dependency 'MWPhotoBrowser', '~> 2.1.1'    
   spec.dependency 'MJRefresh', '~> 3.2.0'
   spec.dependency 'Hyphenate', '~> 3.5.3'
-
 end
