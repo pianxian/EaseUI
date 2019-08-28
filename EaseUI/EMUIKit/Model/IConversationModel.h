@@ -26,6 +26,12 @@
 @property (strong, nonatomic) NSString *avatarURLPath;
 /** @brief conversationId的头像 */
 @property (strong, nonatomic) UIImage *avatarImage;
+//用户状态：1开播主播，2上麦用户，3普通用户
+@property (assign, nonatomic) NSInteger ustatus;
+//主播间id：用户状态为1和2时此字段值大于0并且为直播间id，其他时候此字段值为0
+@property (assign, nonatomic) NSInteger liveroomid;
+//用户uid
+@property (nonatomic, assign) NSInteger uid;
 
 /*!
  @method
