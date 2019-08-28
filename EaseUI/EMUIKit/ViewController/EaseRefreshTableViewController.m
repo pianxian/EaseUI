@@ -75,6 +75,9 @@
         if (_showRefreshHeader) {
             __weak EaseRefreshTableViewController *weakSelf = self;
             self.tableView.mj_header = [MJRefreshNormalHeader headerWithRefreshingBlock:^{
+                if (weakSelf.refreshHeader){
+                    weakSelf.refreshHeader();
+                }
                 [weakSelf tableViewDidTriggerHeaderRefresh];
             }];
             self.tableView.mj_header.accessibilityIdentifier = @"refresh_header";

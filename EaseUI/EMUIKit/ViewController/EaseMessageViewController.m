@@ -27,6 +27,10 @@
 #import "EaseCustomMessageCell.h"
 #import "EaseLocalDefine.h"
 #import "EaseSDKHelper.h"
+#import <AFNetworking/AFNetworking.h>
+#import <MBProgressHUD/MBProgressHUD.h>
+
+typedef void(^TextFilter)(BOOL canSend);
 
 #define KHintAdjustY    50
 
@@ -850,7 +854,7 @@ typedef enum : NSUInteger {
             }
             
             [weakSelf showHudInView:weakSelf.view hint:NSLocalizedString(@"im.gettingBigPicture", nil)];
-
+            
             void (^completion)(EMMessage *aMessage, EMError *error) = ^(EMMessage *aMessage, EMError *error) {
                 [weakSelf hideHud];
                 if (!error) {
@@ -859,7 +863,7 @@ typedef enum : NSUInteger {
                     NSString *localPath = aMessage == nil ? model.fileLocalPath : [(EMImageMessageBody*)aMessage.body localPath];
                     if (localPath && localPath.length > 0) {
                         UIImage *image = [UIImage imageWithContentsOfFile:localPath];
-//                        weakSelf.isScrollToBottom = NO;
+                        //                        weakSelf.isScrollToBottom = NO;
                         if (image)
                         {
                             [[EaseMessageReadManager defaultManager] showBrowserWithImages:@[image]];
@@ -2034,7 +2038,85 @@ typedef enum : NSUInteger {
             }
         }
     }
-    [self sendTextMessage:text withExt:ext];
+    [self sendText:text result:^(BOOL canSend) {
+        if (canSend) {
+            [self sendTextMessage:text withExt:ext];
+        } else {
+            MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+            hud.userInteractionEnabled = NO;
+            hud.labelText = @"Contain objectionable content";
+            hud.removeFromSuperViewOnHide = YES;
+            [hud hide:YES afterDelay:2];
+        }
+    }];
+}
+
+- (void)sendText:(NSString *)text
+          result:(TextFilter)block {
+    block(YES);
+    return;
+    
+    // 获取token
+    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"application/json", @"text/json", @"text/javascript", @"text/html",@"image/jpeg",@"text/plain", nil];
+    NSDictionary *dict = @{
+                           @"grant_type": @"client_credentials",
+                           @"client_id": @"f1Dla3jc6eAeXZqxUGUdTfii",
+                           @"client_secret": @"9pl2gnMnRjgw2IBl55GLP2tMwQECL3LL"
+                           };
+    [manager POST:@"https://aip.baidubce.com/oauth/2.0/token" parameters:dict progress:nil success:
+     ^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+         NSDictionary *dict = (NSDictionary *)responseObject;
+         NSString *accessToken = dict[@"access_token"];
+         if (accessToken && [accessToken length]) {
+             [self getSendText:text accessToken:accessToken result:^(BOOL canSend) {
+                 block(canSend);
+             }];
+         } else {
+             block(YES);
+         }
+         NSLog(@"%@", accessToken);
+     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+         NSLog(@"请求失败--%@",error);
+         block(YES);
+     }];
+}
+
+- (void)getSendText:(NSString *)text
+        accessToken:(NSString *)accessToken
+             result:(TextFilter)block {
+    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+    //    manager.requestSerializer = [AFJSONRequestSerializer serializer];
+    //    [manager.requestSerializer setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
+    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"application/json", @"text/json", @"text/javascript", @"text/html",@"image/jpeg",@"text/plain", nil];
+    
+    NSString *urlString = @"https://aip.baidubce.com/rest/2.0/antispam/v2/spam";
+    NSString *newURLString = [NSString stringWithFormat:@"%@?access_token=%@?",urlString, accessToken];
+    
+    NSDictionary *params = @{@"content": text};
+    [manager POST:newURLString parameters:params progress:nil success:
+     ^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+         NSLog(@"请求成功---%@---%@",responseObject, [responseObject class]);
+         if ([responseObject isKindOfClass:[NSDictionary class]]) {
+             NSDictionary *response = (NSDictionary *)responseObject;
+             NSLog(@"%@",response);
+             //以下结构没做放空处理
+             NSDictionary *resultDict = response[@"result"];
+             if (!resultDict) {
+                 block(YES);
+                 return;
+             }
+             NSNumber *spam = resultDict[@"spam"];
+             if (spam && [spam integerValue]) {
+                 block(NO);
+             } else {
+                 block(YES);
+             }
+         }
+     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+         block(YES);
+     }];
+    
 }
 
 - (void)sendTextMessage:(NSString *)text withExt:(NSDictionary*)ext
@@ -2048,7 +2130,7 @@ typedef enum : NSUInteger {
                          andAddress:(NSString *)address
 {
     NSDictionary *ext = [self _getExtDict];
-
+    
     EMMessage *message = [EaseSDKHelper getLocationMessageWithLatitude:latitude longitude:longitude address:address to:self.conversation.conversationId messageType:[self _messageTypeFromConversationType] messageExt:ext];
     [self sendMessage:message isNeedUploadFile:NO];
 }
@@ -2056,7 +2138,7 @@ typedef enum : NSUInteger {
 - (void)sendImageMessageWithData:(NSData *)imageData
 {
     NSDictionary *ext = [self _getExtDict];
-
+    
     id progress = nil;
     if (_dataSource && [_dataSource respondsToSelector:@selector(messageViewController:progressDelegateForMessageBodyType:)]) {
         progress = [_dataSource messageViewController:self progressDelegateForMessageBodyType:EMMessageBodyTypeImage];
@@ -2072,7 +2154,7 @@ typedef enum : NSUInteger {
 - (void)sendImageMessage:(UIImage *)image
 {
     NSDictionary *ext = [self _getExtDict];
-
+    
     id progress = nil;
     if (_dataSource && [_dataSource respondsToSelector:@selector(messageViewController:progressDelegateForMessageBodyType:)]) {
         progress = [_dataSource messageViewController:self progressDelegateForMessageBodyType:EMMessageBodyTypeImage];
@@ -2089,7 +2171,7 @@ typedef enum : NSUInteger {
                              duration:(NSInteger)duration
 {
     NSDictionary *ext = [self _getExtDict];
-
+    
     id progress = nil;
     if (_dataSource && [_dataSource respondsToSelector:@selector(messageViewController:progressDelegateForMessageBodyType:)]) {
         progress = [_dataSource messageViewController:self progressDelegateForMessageBodyType:EMMessageBodyTypeVoice];
@@ -2105,7 +2187,7 @@ typedef enum : NSUInteger {
 - (void)sendVideoMessageWithURL:(NSURL *)url
 {
     NSDictionary *ext = [self _getExtDict];
-
+    
     id progress = nil;
     if (_dataSource && [_dataSource respondsToSelector:@selector(messageViewController:progressDelegateForMessageBodyType:)]) {
         progress = [_dataSource messageViewController:self progressDelegateForMessageBodyType:EMMessageBodyTypeVideo];

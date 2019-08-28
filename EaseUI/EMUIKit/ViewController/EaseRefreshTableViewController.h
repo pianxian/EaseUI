@@ -43,7 +43,7 @@
 @property (nonatomic) BOOL showRefreshFooter;
 /** @brief 是否显示无数据时的空白提示，默认为NO(未实现提示页面) */
 @property (nonatomic) BOOL showTableBlankView;
-
+@property (nonatomic, copy) void (^refreshHeader)(void);
 /*!
  @method
  @brief 初始化ViewController
