@@ -22,8 +22,6 @@
 #define kTouchToRecord NSLocalizedString(@"im.holdAndTalk",nil)
 #define kTouchToFinish  NSLocalizedString(@"im.releaseSend",nil)
 
-
-
 @protocol EMChatToolbarDelegate;
 @interface EaseChatToolbar : UIView
 
@@ -53,8 +51,13 @@
 
 @property (strong, nonatomic) UIView *recordView;
 
+@property (copy, nonatomic) void(^giftClickAction)(BOOL isShow);
+@property (nonatomic, assign) BOOL isShowGift;
+
+
 - (instancetype)initWithFrame:(CGRect)frame
-                         type:(EMChatToolbarType)type;
+                         type:(EMChatToolbarType)type isShowGift:(BOOL)isShowGift;
+;
 
 /**
  *  Initializa chat bar
@@ -69,7 +72,8 @@
               verticalPadding:(CGFloat)verticalPadding
            inputViewMinHeight:(CGFloat)inputViewMinHeight
            inputViewMaxHeight:(CGFloat)inputViewMaxHeight
-                         type:(EMChatToolbarType)type;
+                         type:(EMChatToolbarType)type
+                   isShowGift:(BOOL)isShowGift;
 
 /*!
  @method

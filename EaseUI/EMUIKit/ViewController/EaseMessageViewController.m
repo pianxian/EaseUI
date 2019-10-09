@@ -114,7 +114,7 @@ typedef enum : NSUInteger {
     //Initialization
     CGFloat chatbarHeight = [EaseChatToolbar defaultHeight];
     EMChatToolbarType barType = self.conversation.type == EMConversationTypeChat ? EMChatToolbarTypeChat : EMChatToolbarTypeGroup;
-    self.chatToolbar = [[EaseChatToolbar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - chatbarHeight - iPhoneX_BOTTOM_HEIGHT, self.view.frame.size.width, chatbarHeight) type:barType];
+    self.chatToolbar = [[EaseChatToolbar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - chatbarHeight - iPhoneX_BOTTOM_HEIGHT, self.view.frame.size.width, chatbarHeight) type:barType isShowGift:self.isShowGift];
     self.chatToolbar.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
     
     //Initializa the gesture recognizer
@@ -348,20 +348,22 @@ typedef enum : NSUInteger {
     _isViewDidAppear =isViewDidAppear;
     if (_isViewDidAppear)
     {
-        NSMutableArray *unreadMessages = [NSMutableArray array];
-        for (EMMessage *message in self.messsagesSource)
-        {
-            if ([self shouldSendHasReadAckForMessage:message read:NO])
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSMutableArray *unreadMessages = [NSMutableArray array];
+            for (EMMessage *message in self.messsagesSource)
             {
-                [unreadMessages addObject:message];
+                if ([self shouldSendHasReadAckForMessage:message read:NO])
+                {
+                    [unreadMessages addObject:message];
+                }
             }
-        }
-        if ([unreadMessages count])
-        {
-            [self _sendHasReadResponseForMessages:unreadMessages isRead:YES];
-        }
-        
-        [_conversation markAllMessagesAsRead:nil];
+            if ([unreadMessages count])
+            {
+                [self _sendHasReadResponseForMessages:unreadMessages isRead:YES];
+            }
+            
+            [_conversation markAllMessagesAsRead:nil];
+        });
     }
 }
 
@@ -689,33 +691,35 @@ typedef enum : NSUInteger {
 - (void)_sendHasReadResponseForMessages:(NSArray*)messages
                                  isRead:(BOOL)isRead
 {
-    NSMutableArray *unreadMessages = [NSMutableArray array];
-    for (NSInteger i = 0; i < [messages count]; i++)
-    {
-        EMMessage *message = messages[i];
-        BOOL isSend = YES;
-        if (_dataSource && [_dataSource respondsToSelector:@selector(messageViewController:shouldSendHasReadAckForMessage:read:)]) {
-            isSend = [_dataSource messageViewController:self
-                         shouldSendHasReadAckForMessage:message read:isRead];
-        }
-        else{
-            isSend = [self shouldSendHasReadAckForMessage:message
-                                                     read:isRead];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSMutableArray *unreadMessages = [NSMutableArray array];
+        for (NSInteger i = 0; i < [messages count]; i++)
+        {
+            EMMessage *message = messages[i];
+            BOOL isSend = YES;
+            if (_dataSource && [_dataSource respondsToSelector:@selector(messageViewController:shouldSendHasReadAckForMessage:read:)]) {
+                isSend = [_dataSource messageViewController:self
+                             shouldSendHasReadAckForMessage:message read:isRead];
+            }
+            else{
+                isSend = [self shouldSendHasReadAckForMessage:message
+                                                         read:isRead];
+            }
+            
+            if (isSend)
+            {
+                [unreadMessages addObject:message];
+            }
         }
         
-        if (isSend)
+        if ([unreadMessages count])
         {
-            [unreadMessages addObject:message];
+            for (EMMessage *message in unreadMessages)
+            {
+                [[EMClient sharedClient].chatManager sendMessageReadAck:message completion:nil];
+            }
         }
-    }
-    
-    if ([unreadMessages count])
-    {
-        for (EMMessage *message in unreadMessages)
-        {
-            [[EMClient sharedClient].chatManager sendMessageReadAck:message completion:nil];
-        }
-    }
+    });
 }
 
 - (BOOL)_shouldMarkMessageAsRead

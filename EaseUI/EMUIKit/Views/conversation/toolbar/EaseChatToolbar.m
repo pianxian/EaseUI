@@ -31,6 +31,10 @@
 @property (strong, nonatomic) UIButton *recordButton;
 @property (strong, nonatomic) UIButton *moreButton;
 @property (strong, nonatomic) UIButton *faceButton;
+
+@property (strong, nonatomic) UIButton *giftButton;
+
+
 @property (nonatomic) CGFloat previousTextViewContentHeight;//上一次inputTextView的contentSize.height
 @property (nonatomic) NSLayoutConstraint *inputViewWidthItemsLeftConstraint;
 @property (nonatomic) NSLayoutConstraint *inputViewWidthoutItemsLeftConstraint;
@@ -47,7 +51,7 @@
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
-    self = [self initWithFrame:frame horizontalPadding:8 verticalPadding:5 inputViewMinHeight:36 inputViewMaxHeight:150 type:EMChatToolbarTypeGroup];
+    self = [self initWithFrame:frame horizontalPadding:8 verticalPadding:5 inputViewMinHeight:36 inputViewMaxHeight:150 type:EMChatToolbarTypeGroup isShowGift:NO];
     if (self) {
         
     }
@@ -56,13 +60,9 @@
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
-                         type:(EMChatToolbarType)type
+                         type:(EMChatToolbarType)type isShowGift:(BOOL)isShowGift
 {
-    self = [self initWithFrame:frame horizontalPadding:8 verticalPadding:5 inputViewMinHeight:36 inputViewMaxHeight:150 type:type];
-    if (self) {
-        
-    }
-    
+    self = [self initWithFrame:frame horizontalPadding:8 verticalPadding:5 inputViewMinHeight:36 inputViewMaxHeight:150 type:type isShowGift:isShowGift];
     return self;
 }
 
@@ -72,12 +72,14 @@
            inputViewMinHeight:(CGFloat)inputViewMinHeight
            inputViewMaxHeight:(CGFloat)inputViewMaxHeight
                          type:(EMChatToolbarType)type
+                   isShowGift:(BOOL)isShowGift
 {
     if (frame.size.height < (verticalPadding * 2 + inputViewMinHeight)) {
         frame.size.height = verticalPadding * 2 + inputViewMinHeight;
     }
     self = [super initWithFrame:frame];
     if (self) {
+        self.isShowGift = isShowGift;
         self.accessibilityIdentifier = @"chatbar";
 
         _horizontalPadding = horizontalPadding;
@@ -192,8 +194,33 @@
     [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_keyboard"] forState:UIControlStateSelected];
     [self.moreButton addTarget:self action:@selector(moreButtonAction:) forControlEvents:UIControlEventTouchUpInside];
     EaseChatToolbarItem *moreItem = [[EaseChatToolbarItem alloc] initWithButton:self.moreButton withView:self.moreView];
-    
-    [self setInputViewRightItems:@[faceItem, moreItem]];
+    if (self.isShowGift) {
+        self.giftButton = [[UIButton alloc] init];
+        self.giftButton.accessibilityIdentifier = @"gift";
+        self.giftButton.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
+        [self.giftButton setImage:[UIImage imageNamed:@"礼物"] forState:UIControlStateNormal];
+        [self.giftButton setImage:[UIImage imageNamed:@"礼物"] forState:UIControlStateHighlighted];
+        [self.giftButton setImage:[UIImage imageNamed:@"礼物"] forState:UIControlStateSelected];
+        [self.giftButton addTarget:self action:@selector(giftButtonClick:) forControlEvents:UIControlEventTouchUpInside];
+        EaseChatToolbarItem *giftItem = [[EaseChatToolbarItem alloc] initWithButton:self.giftButton withView:nil];
+        
+        [self setInputViewRightItems:@[faceItem, moreItem,giftItem]];
+
+    } else {
+        [self setInputViewRightItems:@[faceItem, moreItem]];
+    }
+}
+
+-(void)giftButtonClick:(UIButton *)sender{
+    [self.inputTextView resignFirstResponder];
+    if (self.activityButtomView) {
+        [self.activityButtomView removeFromSuperview];
+    }
+    self.activityButtomView = nil;
+    [self _willShowBottomHeight:0];
+    if (self.giftClickAction) {
+        self.giftClickAction(YES);
+    }
 }
 
 - (void)dealloc

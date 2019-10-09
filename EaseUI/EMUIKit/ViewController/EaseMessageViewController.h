@@ -301,6 +301,7 @@ shouldSendHasReadAckForMessage:(EMMessage *)message
 
 @interface EaseMessageViewController : EaseRefreshTableViewController<UINavigationControllerDelegate, UIImagePickerControllerDelegate, EMChatManagerDelegate, EMCDDeviceManagerDelegate, EMChatToolbarDelegate, EaseChatBarMoreViewDelegate, EMLocationViewDelegate,EMChatroomManagerDelegate, EaseMessageCellDelegate>
 
+@property (nonatomic, assign) BOOL isShowGift;
 
 @property (weak, nonatomic) id<EaseMessageViewControllerDelegate> delegate;
 
