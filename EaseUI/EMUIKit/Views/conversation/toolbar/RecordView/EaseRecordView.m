@@ -40,19 +40,19 @@
     if (self) {
         // Initialization code
         UIView *bgView = [[UIView alloc] initWithFrame:self.bounds];
-        bgView.backgroundColor = [UIColor grayColor];
-        bgView.layer.cornerRadius = 5;
+        bgView.backgroundColor = [UIColor blackColor];
+        bgView.layer.cornerRadius = 15;
         bgView.layer.masksToBounds = YES;
-        bgView.alpha = 0.6;
+        bgView.alpha = 0.5;
         [self addSubview:bgView];
         
-        _recordAnimationView = [[UIImageView alloc] initWithFrame:CGRectMake(10, 0, self.bounds.size.width - 20, self.bounds.size.height - 30)];
+        _recordAnimationView = [[UIImageView alloc] initWithFrame:CGRectMake(bgView.bounds.size.width / 2 - 21.25 , 30, 42.5, 55)];
         _recordAnimationView.image = [UIImage imageNamed:@"EaseUIResource.bundle/VoiceSearchFeedback001"];
         _recordAnimationView.contentMode = UIViewContentModeScaleAspectFit;
         [self addSubview:_recordAnimationView];
         
         _textLabel = [[UILabel alloc] initWithFrame:CGRectMake(5,
-                                                               self.bounds.size.height - 30,
+                                                               CGRectGetMaxY(_recordAnimationView.frame) + 15,
                                                                self.bounds.size.width - 10,
                                                                25)];
         
@@ -60,7 +60,7 @@
         _textLabel.backgroundColor = [UIColor clearColor];
         _textLabel.text = NSLocalizedString(@"im.SlipOnYourFinger", nil);
         [self addSubview:_textLabel];
-        _textLabel.font = [UIFont systemFontOfSize:13];
+        _textLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
         _textLabel.textColor = [UIColor whiteColor];
         _textLabel.layer.cornerRadius = 5;
         _textLabel.layer.borderColor = [[UIColor redColor] colorWithAlphaComponent:0.5].CGColor;

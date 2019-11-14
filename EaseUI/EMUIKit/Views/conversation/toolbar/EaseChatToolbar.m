@@ -121,7 +121,8 @@
     
     //toolbar
     _toolbarView = [[UIView alloc] initWithFrame:self.bounds];
-    _toolbarView.backgroundColor = [UIColor clearColor];
+    _toolbarView.backgroundColor = [UIColor whiteColor];
+    
     [self addSubview:_toolbarView];
     
     _toolbarBackgroundImageView = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, _toolbarView.frame.size.width, _toolbarView.frame.size.height)];
@@ -137,10 +138,8 @@
     _inputTextView.enablesReturnKeyAutomatically = YES; // UITextView内部判断send按钮是否可以用
     _inputTextView.placeHolder = NSLocalizedString(@"im.enterNewMessage",nil);
     _inputTextView.delegate = self;
-    _inputTextView.backgroundColor = [UIColor clearColor];
-    _inputTextView.layer.borderColor = [UIColor colorWithWhite:0.8f alpha:1.0f].CGColor;
-    _inputTextView.layer.borderWidth = 0.65f;
-    _inputTextView.layer.cornerRadius = 6.0f;
+    _inputTextView.backgroundColor = [UIColor colorWithRed:243 / 255.0 green:247 / 255.0 blue:250 / 255.0 alpha:1.0];
+    _inputTextView.layer.cornerRadius = 3.0f;
     _previousTextViewContentHeight = [self _getTextViewContentH:_inputTextView];
     [_toolbarView addSubview:_inputTextView];
     
@@ -148,8 +147,8 @@
     UIButton *styleChangeButton = [[UIButton alloc] init];
     styleChangeButton.accessibilityIdentifier = @"style";
     styleChangeButton.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
-    [styleChangeButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_record"] forState:UIControlStateNormal];
-    [styleChangeButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_keyboard"] forState:UIControlStateSelected];
+    [styleChangeButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_chat_voice"] forState:UIControlStateNormal];
+    [styleChangeButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_key"] forState:UIControlStateSelected];
     [styleChangeButton addTarget:self action:@selector(styleButtonAction:) forControlEvents:UIControlEventTouchUpInside];
     
     EaseChatToolbarItem *styleItem = [[EaseChatToolbarItem alloc] initWithButton:styleChangeButton withView:nil];
@@ -159,7 +158,7 @@
     self.recordButton = [[UIButton alloc] initWithFrame:self.inputTextView.frame];
     self.recordButton.accessibilityIdentifier = @"record";
     self.recordButton.titleLabel.font = [UIFont systemFontOfSize:15.0];
-    [self.recordButton setTitleColor:[UIColor darkGrayColor] forState:UIControlStateNormal];
+    [self.recordButton setTitleColor:[UIColor colorWithRed:153 / 255.0 green:153 / 255.0 blue:153 / 255.0 alpha:1.0] forState:UIControlStateNormal];
     [self.recordButton setBackgroundImage:[[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_recordBg"] stretchableImageWithLeftCapWidth:10 topCapHeight:10] forState:UIControlStateNormal];
     [self.recordButton setBackgroundImage:[[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_recordSelectedBg"] stretchableImageWithLeftCapWidth:10 topCapHeight:10] forState:UIControlStateHighlighted];
     [self.recordButton setTitle:kTouchToRecord forState:UIControlStateNormal];
@@ -179,9 +178,9 @@
     self.faceButton = [[UIButton alloc] init];
     self.faceButton.accessibilityIdentifier = @"face";
     self.faceButton.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
-    [self.faceButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_face"] forState:UIControlStateNormal];
-    [self.faceButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_faceSelected"] forState:UIControlStateHighlighted];
-    [self.faceButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_keyboard"] forState:UIControlStateSelected];
+    [self.faceButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_expression"] forState:UIControlStateNormal];
+    [self.faceButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_expression"] forState:UIControlStateHighlighted];
+    [self.faceButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_expression"] forState:UIControlStateSelected];
     [self.faceButton addTarget:self action:@selector(faceButtonAction:) forControlEvents:UIControlEventTouchUpInside];
     EaseChatToolbarItem *faceItem = [[EaseChatToolbarItem alloc] initWithButton:self.faceButton withView:self.faceView];
     
@@ -189,9 +188,9 @@
     self.moreButton = [[UIButton alloc] init];
     self.moreButton.accessibilityIdentifier = @"more";
     self.moreButton.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
-    [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_more"] forState:UIControlStateNormal];
-    [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_moreSelected"] forState:UIControlStateHighlighted];
-    [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_keyboard"] forState:UIControlStateSelected];
+    [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_add"] forState:UIControlStateNormal];
+    [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_add"] forState:UIControlStateHighlighted];
+    [self.moreButton setImage:[UIImage imageNamed:@"EaseUIResource.bundle/message_add"] forState:UIControlStateSelected];
     [self.moreButton addTarget:self action:@selector(moreButtonAction:) forControlEvents:UIControlEventTouchUpInside];
     EaseChatToolbarItem *moreItem = [[EaseChatToolbarItem alloc] initWithButton:self.moreButton withView:self.moreView];
     if (self.isShowGift) {
@@ -204,7 +203,7 @@
         [self.giftButton addTarget:self action:@selector(giftButtonClick:) forControlEvents:UIControlEventTouchUpInside];
         EaseChatToolbarItem *giftItem = [[EaseChatToolbarItem alloc] initWithButton:self.giftButton withView:nil];
         
-        [self setInputViewRightItems:@[faceItem, moreItem,giftItem]];
+        [self setInputViewRightItems:@[faceItem, giftItem, moreItem]];
 
     } else {
         [self setInputViewRightItems:@[faceItem, moreItem]];
@@ -237,7 +236,7 @@
 - (UIView *)recordView
 {
     if (_recordView == nil) {
-        _recordView = [[EaseRecordView alloc] initWithFrame:CGRectMake(90, 130, 140, 140)];
+        _recordView = [[EaseRecordView alloc] initWithFrame:CGRectMake(90, 130, [UIScreen mainScreen].bounds.size.width - 180, 140)];
     }
     
     return _recordView;
