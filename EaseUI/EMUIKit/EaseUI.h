@@ -13,6 +13,7 @@
 
 #import <Foundation/Foundation.h>
 #ifdef __OBJC__
+#import "amr_wav_converter.h"
 #import "MOKORecordHeaderDefine.h"
 #import "MOKORecordPowerAnimationView.h"
 #import "MOKORecordShowManager.h"
