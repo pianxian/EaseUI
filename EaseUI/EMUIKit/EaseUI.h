@@ -10,7 +10,9 @@
  * from Hyphenate Inc.
  */
 
+
 #import <Foundation/Foundation.h>
+#ifdef __OBJC__
 #import "MOKORecordHeaderDefine.h"
 #import "MOKORecordPowerAnimationView.h"
 #import "MOKORecordShowManager.h"
@@ -48,7 +50,7 @@
 #import "UIViewController+HUD.h"
 #import "UIViewController+DismissKeyboard.h"
 #import "EaseLocalDefine.h"
-
+#endif
 @interface EaseUI : NSObject
 
 @end
