@@ -11,8 +11,15 @@
  */
 
 #import <Foundation/Foundation.h>
-
+#import "MOKORecordHeaderDefine.h"
+#import "MOKORecordPowerAnimationView.h"
+#import "MOKORecordShowManager.h"
+#import "MOKORecordToastContentView.h"
+#import "MOKORecordView.h"
+#import "SGGCDManager.h"
+#import "MOKORecordButton.h"
 #import  "UIImageView+WebCache.h"
+#import "MOKORecorderTool.h"
 
 #import "EaseConversationListViewController.h"
 #import "EaseMessageViewController.h"
