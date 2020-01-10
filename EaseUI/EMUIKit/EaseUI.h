@@ -10,19 +10,9 @@
  * from Hyphenate Inc.
  */
 
-
 #import <Foundation/Foundation.h>
-#ifdef __OBJC__
-#import "amr_wav_converter.h"
-#import "MOKORecordHeaderDefine.h"
-#import "MOKORecordPowerAnimationView.h"
-#import "MOKORecordShowManager.h"
-#import "MOKORecordToastContentView.h"
-#import "MOKORecordView.h"
-#import "SGGCDManager.h"
-#import "MOKORecordButton.h"
+
 #import  "UIImageView+WebCache.h"
-#import "MOKORecorderTool.h"
 
 #import "EaseConversationListViewController.h"
 #import "EaseMessageViewController.h"
@@ -51,7 +41,7 @@
 #import "UIViewController+HUD.h"
 #import "UIViewController+DismissKeyboard.h"
 #import "EaseLocalDefine.h"
-#endif
+
 @interface EaseUI : NSObject
 
 @end

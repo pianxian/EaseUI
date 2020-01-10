@@ -11,7 +11,7 @@
  */
 
 #import "EaseMessageViewController.h"
-
+#import "Masonry.h"
 #import <Foundation/Foundation.h>
 #import <Photos/Photos.h>
 #import <AssetsLibrary/AssetsLibrary.h>
@@ -103,6 +103,14 @@ typedef enum : NSUInteger {
     return self;
 }
 
+-(BOOL)isHeirHead{
+    if (@available(iOS 11.0, *)) {
+        //当a>0即为刘海屏
+        return [[UIApplication sharedApplication] delegate].window.safeAreaInsets.bottom > 0;
+    } else {
+        return NO;
+    }
+}
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view.
@@ -114,9 +122,11 @@ typedef enum : NSUInteger {
     //Initialization
     CGFloat chatbarHeight = [EaseChatToolbar defaultHeight];
     EMChatToolbarType barType = self.conversation.type == EMConversationTypeChat ? EMChatToolbarTypeChat : EMChatToolbarTypeGroup;
-    self.chatToolbar = [[EaseChatToolbar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - chatbarHeight - iPhoneX_BOTTOM_HEIGHT, self.view.frame.size.width, chatbarHeight) type:barType isShowGift:self.isShowGift];
+    self.chatToolbar = [[EaseChatToolbar alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - chatbarHeight - ([self isHeirHead] ? 34.f:0.f), self.view.frame.size.width, chatbarHeight) type:barType isShowGift:self.isShowGift];
     self.chatToolbar.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
-    
+    CGRect frame = self.tableView.frame;
+    frame.size.height -= ([self isHeirHead] ? 34.f:0.f);
+    self.tableView.frame = frame;
     //Initializa the gesture recognizer
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(keyBoardHidden:)];
     [self.view addGestureRecognizer:tap];
@@ -328,6 +338,7 @@ typedef enum : NSUInteger {
         _imagePicker = [[UIImagePickerController alloc] init];
         _imagePicker.modalPresentationStyle= UIModalPresentationOverFullScreen;
         _imagePicker.delegate = self;
+        
     }
     
     return _imagePicker;
@@ -1624,14 +1635,34 @@ typedef enum : NSUInteger {
     [self.chatToolbar endEditing:YES];
     
     // Pop image picker
-    self.imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-    self.imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
-    [self presentViewController:self.imagePicker animated:YES completion:NULL];
+//    UIImagePickerController *photoPick = [[UIImagePickerController alloc] init];
+//    photoPick.modalPresentationStyle= UIModalPresentationFullScreen;
+//        photoPick.delegate = self;
+////    photoPick.navigationBar.backIndicatorImage = [[UIImage alloc] init];
+////    photoPick.navigationBar.backIndicatorTransitionMaskImage = [[UIImage alloc] init];
+////
+////    photoPick.navigationBar.tintColor = [UIColor redColor];
+////     photoPick.navigationBar.barStyle = UIBarStyleBlackOpaque;
+////     photoPick.navigationBar.topItem.rightBarButtonItem.tintColor = [UIColor blackColor];
+//
+//    photoPick.mediaTypes = @[(NSString *)kUTTypeImage];
+//    [self.navigationController presentViewController:photoPick animated:YES completion:NULL];
+
+    SGImagePickController *pick = [[SGImagePickController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:pick];
+    nav.modalPresentationStyle = UIModalPresentationFullScreen;
+    pick.picChoseCompleteAction = ^(UIImage *image) {
+        [self sendImageMessage:image];
+    };
+    [self presentViewController:nav animated:YES completion:nil];
     
     self.isViewDidAppear = NO;
     [[EaseSDKHelper shareHelper] setIsShowingimagePicker:YES];
 }
 
+-(void)cancelAction{
+    [self.imagePicker dismissViewControllerAnimated:YES completion:nil];
+}
 - (void)moreViewTakePicAction:(EaseChatBarMoreView *)moreView
 {
     // Hide the keyboard
@@ -2342,5 +2373,793 @@ typedef enum : NSUInteger {
     return targets;
 }
 
+
+@end
+
+
+
+#pragma mark --imagePickController
+@interface SGImagePickController () <UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout>
+@property (nonatomic,strong) SGPicAuthorView *authorView;
+@property (nonatomic, strong) UIButton *showAlbumButton;
+@property (nonatomic, strong) UIButton *cancelButton;
+@property (nonatomic, strong) UIButton *confirmButton;
+@property (nonatomic, strong) UICollectionView *albumCollectionView;
+@property (nonatomic, strong) NSMutableArray<ImagePickAlbumModel *> *assetCollectionList;
+@property (nonatomic, strong) ImagePickAlbumModel *albumModel;
+
+@property (nonatomic,strong) NSIndexPath *currentIndexPath;
+
+@end
+
+
+
+static NSString *identifier = @"identifier";
+@implementation SGImagePickController
+
+-(SGPicAuthorView *)authorView{
+    if (!_authorView) {
+        _authorView =[[SGPicAuthorView alloc] init];
+        _authorView.frame = self.view.bounds;
+    }
+    return _authorView;
+}
+-(UICollectionView *)albumCollectionView {
+    if (!_albumCollectionView) {
+        UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
+        layout.scrollDirection = UICollectionViewScrollDirectionVertical;
+        layout.minimumLineSpacing = 5.f;
+        layout.minimumInteritemSpacing = 5.f;
+        
+        _albumCollectionView = [[UICollectionView alloc] initWithFrame:self.view.bounds collectionViewLayout:layout];
+        _albumCollectionView.delegate = self;
+        _albumCollectionView.dataSource = self;
+        _albumCollectionView.backgroundColor = [UIColor whiteColor];
+        _albumCollectionView.scrollEnabled = YES;
+        _albumCollectionView.alwaysBounceVertical = YES;
+        
+        [_albumCollectionView registerClass:[ImagepickCollectionViewCel class] forCellWithReuseIdentifier:identifier];
+        
+        [self.view addSubview:_albumCollectionView];
+    }
+    
+    return _albumCollectionView;
+}
+
+-(UIButton *)showAlbumButton {
+    if (!_showAlbumButton) {
+        _showAlbumButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        _showAlbumButton.frame = CGRectMake(0, 0, 180, 45);
+        [_showAlbumButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+        [_showAlbumButton setImage:[UIImage imageNamed:@"down"] forState:UIControlStateNormal];
+        [_showAlbumButton setImage:[UIImage imageNamed:@"up"] forState:UIControlStateSelected];
+        _showAlbumButton.titleLabel.font = [UIFont systemFontOfSize:15];
+        _showAlbumButton.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, 10.f);
+        [_showAlbumButton addTarget:self action:@selector(showAlbum:) forControlEvents:UIControlEventTouchUpInside];
+    }
+    
+    return _showAlbumButton;
+}
+
+-(UIButton *)cancelButton {
+    if (!_cancelButton) {
+        _cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        _cancelButton.frame = CGRectMake(0, 0, 50, 50);
+        [_cancelButton setImage:[UIImage imageNamed:@"return1"] forState:UIControlStateNormal];
+        _cancelButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+        [_cancelButton addTarget:self action:@selector(backAction:) forControlEvents:UIControlEventTouchUpInside];
+    }
+    
+    return _cancelButton;
+}
+
+//-(UIButton *)confirmButton {
+//    if (!_confirmButton) {
+//        _confirmButton = [UIButton buttonWithType:UIButtonTypeCustom];
+//        [_confirmButton addTarget:self action:@selector(confirmAction:) forControlEvents:UIControlEventTouchUpInside];
+//        _confirmButton.enabled = NO;
+//        _confirmButton.frame = CGRectMake(0, 0, 30, 30);
+//        _confirmButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+//        _confirmButton.titleLabel.font = [UIFont systemFontOfSize:15];
+//        [_confirmButton setBackgroundColor:RGB(33, 174, 163)];
+//        [_confirmButton setTitle:kgetLocalText(@"Confirm") forState:UIControlStateNormal];
+//        [_confirmButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+//        _confirmButton.layer.cornerRadius = 3;
+//        _confirmButton.clipsToBounds = YES;
+//    }
+//
+//    return _confirmButton;
+//}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    [self setupViewController];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(enteForGround) name:@"enterForeground" object:nil];
+}
+
+-(void)enteForGround{
+    if ([self isPhotoAlbumNotDetermined]) {
+        if (self.authorView.superview) {
+            [self.view insertSubview:self.authorView aboveSubview:self.albumCollectionView];
+        }
+    }else{
+        [self.authorView removeFromSuperview];
+    }
+}
+-(void)setupViewController {
+    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithCustomView:self.cancelButton];
+    self.navigationItem.leftBarButtonItem = backItem;
+    
+    UIView *titleView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 180, 45)];
+    self.navigationItem.titleView = titleView;
+    [titleView addSubview:self.showAlbumButton];
+    
+//    UIBarButtonItem *confirmItem = [[UIBarButtonItem alloc] initWithCustomView:self.confirmButton];
+//    self.navigationItem.rightBarButtonItem = confirmItem;
+    
+    self.view.backgroundColor = [UIColor whiteColor];
+    
+    [self requestAuth];
+
+    
+
+}
+-(void)requestAuth{
+    [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus status) {
+        switch (status) {
+            case PHAuthorizationStatusNotDetermined:
+        {
+//            [self getThumbnailImages];
+
+        }
+            break;
+        case PHAuthorizationStatusAuthorized:{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.authorView removeFromSuperview];
+            });
+           
+             [self getThumbnailImages];
+        }
+            break;
+        case PHAuthorizationStatusRestricted:{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (!self.authorView.superview) {
+                    [self.view insertSubview:self.authorView aboveSubview:self.albumCollectionView];
+                }
+            });
+        
+        }
+            break;
+        case PHAuthorizationStatusDenied:{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (!self.authorView.superview) {
+                         [self.view insertSubview:self.authorView aboveSubview:self.albumCollectionView];
+                                   
+                     }
+            });
+       
+        }
+        default:
+            break;
+    }
+    }];
+}
+-(BOOL)isPhotoAlbumNotDetermined
+{
+    PHAuthorizationStatus author = [PHPhotoLibrary authorizationStatus];
+    if (author == PHAuthorizationStatusNotDetermined)
+    {
+        return YES;
+    }
+    return NO;
+}
+-(void)setAlbumModel:(ImagePickAlbumModel *)albumModel {
+    _albumModel = albumModel;
+    
+    [self.showAlbumButton setTitle:albumModel.collectionTitle forState:UIControlStateNormal];
+    
+    [self.albumCollectionView reloadData];
+}
+
+#pragma mark - UICollectionViewDataSource / UICollectionViewDelegate
+-(NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
+    return self.albumModel.assets.count;
+}
+
+-(UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
+    ImagepickCollectionViewCel *cell = [collectionView dequeueReusableCellWithReuseIdentifier:identifier forIndexPath:indexPath];
+    
+    cell.row = indexPath.row;
+    cell.asset = self.albumModel.assets[indexPath.row];
+    [cell loadImage:indexPath];
+  
+    return cell;
+}
+#pragma mark --collectionViewDidSelcted
+-(void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath{
+//    ImagepickCollectionViewCel *oldCell = (AlbumCollectionViewCel *)[collectionView cellForItemAtIndexPath:self.currentIndexPath];
+//    oldCell.isSelect = NO;
+//    AlbumCollectionViewCel *currentCell = (AlbumCollectionViewCel *)[collectionView cellForItemAtIndexPath:indexPath];
+//    currentCell.isSelect = YES;
+//    self.currentIndexPath = indexPath;
+//    self.confirmButton.enabled = YES;
+    PHFetchResult *result  = self.albumModel.assets[indexPath.row];
+    [self loadImage:result completion:^(UIImage *image) {
+        if (self.picChoseCompleteAction) {
+            self.picChoseCompleteAction(image);
+        }
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }];
+//    if (self.picChoseCompleteAction) {
+//        self.picChoseCompleteAction(<#UIImage *image#>)
+//    }
+
+}
+-(void)loadImage:(PHAsset *)asset completion:(void(^)(UIImage *image))completion{
+ 
+    PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+    options.resizeMode = PHImageRequestOptionsResizeModeNone;
+          // 同步获得图片, 只会返回1张图片
+    options.synchronous = YES;
+    options.networkAccessAllowed = YES;
+    options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+    
+        [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData * _Nullable imageData, NSString * _Nullable dataUTI, UIImageOrientation orientation, NSDictionary * _Nullable info) {
+            UIImage * result = [UIImage imageWithData:imageData];
+            completion(result);
+        }];
+}
+
+-(CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath {
+    return CGSizeMake(([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f, ([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f);
+}
+
+-(UIEdgeInsets)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout insetForSectionAtIndex:(NSInteger)section {
+    return UIEdgeInsetsMake(5, 5, 5, 5);
+}
+-(void)showAlbum:(UIButton *)button {
+    button.selected = !button.selected;
+    
+    [pickShowView showAlbumView:self.assetCollectionList navigationBarMaxY:CGRectGetMaxY(self.navigationController.navigationBar.frame) complete:^(ImagePickAlbumModel *albumModel) {
+        if (albumModel) {
+            self.albumModel = albumModel;
+        }
+        
+        button.selected = !button.selected;
+    }];
+}
+
+-(void)backAction:(UIButton *)button {
+    
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+
+
+
+
+-(void)getThumbnailImages {
+    self.assetCollectionList = [NSMutableArray array];
+    
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        PHFetchResult<PHAssetCollection *> *favoritesCollection = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeSmartAlbumFavorites options:nil];
+        // 获得相机胶卷
+        PHFetchResult<PHAssetCollection *> *assetCollections = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeAlbum subtype:PHAssetCollectionSubtypeSmartAlbumUserLibrary options:nil];
+        // 获得全部相片
+        PHFetchResult<PHAssetCollection *> *cameraRolls = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeSmartAlbumUserLibrary options:nil];
+        
+        for (PHAssetCollection *collection in cameraRolls) {
+            ImagePickAlbumModel *model = [[ImagePickAlbumModel alloc] init];
+            model.collection = collection;
+            
+            if (![model.collectionNumber isEqualToString:@"0"]) {
+                [weakSelf.assetCollectionList addObject:model];
+            }
+        }
+        
+        for (PHAssetCollection *collection in favoritesCollection) {
+            ImagePickAlbumModel *model = [[ImagePickAlbumModel alloc] init];
+            model.collection = collection;
+            
+            if (![model.collectionNumber isEqualToString:@"0"]) {
+                [weakSelf.assetCollectionList addObject:model];
+            }
+        }
+        
+        for (PHAssetCollection *collection in assetCollections) {
+            ImagePickAlbumModel *model = [[ImagePickAlbumModel alloc] init];
+            model.collection = collection;
+            
+            if (![model.collectionNumber isEqualToString:@"0"]) {
+                [weakSelf.assetCollectionList addObject:model];
+            }
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            weakSelf.albumModel = weakSelf.assetCollectionList.firstObject;
+        });
+    });
+
+}
+@end
+
+
+
+@interface ImagepickCollectionViewCel ()
+/// 相片
+@property (nonatomic, strong) UIImageView *photoImageView;
+///// 选中按钮
+//@property (nonatomic, strong) UIButton *selectButton;
+/// 半透明遮罩
+@property (nonatomic, strong) UIView *translucentView;
+@end
+
+@implementation ImagepickCollectionViewCel
+-(instancetype)initWithFrame:(CGRect)frame {
+    if (self = [super initWithFrame:frame]) {
+        [self photoImageView];
+        [self translucentView];
+//        [self selectButton];
+    }
+    
+    return self;
+}
+
+#pragma mark - Set方法
+-(void)setIsSelect:(BOOL)isSelect {
+    _isSelect = isSelect;
+    
+    self.translucentView.hidden = !isSelect;
+
+    _translucentView.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0 alpha:0.5];
+}
+
+#pragma mark - 加载图片
+-(void)loadImage:(NSIndexPath *)indexPath {
+    CGFloat imageWidth = ([UIScreen mainScreen].bounds.size.width - 20.f) / 5.5;
+    self.photoImageView.image = nil;
+    PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+    options.resizeMode = PHImageRequestOptionsResizeModeNone;
+    // 同步获得图片, 只会返回1张图片
+    options.synchronous = YES;
+    options.networkAccessAllowed = YES;
+    options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+//    [PHImageManager defaultManager].
+//    PHImageManagerMaximumSize
+//    [[PHImageManager defaultManager] requestImageDataForAsset:self.asset options:options resultHandler:^(NSData * _Nullable imageData, NSString * _Nullable dataUTI, UIImageOrientation orientation, NSDictionary * _Nullable info) {
+//        UIImage * result = [UIImage imageWithData:imageData];
+//            if (self.row == indexPath.row) {
+//                self.photoImageView.image = result;
+//            }
+//    }];
+    
+    [[PHCachingImageManager defaultManager] requestImageForAsset:self.asset targetSize:CGSizeMake(imageWidth * [UIScreen mainScreen].scale, imageWidth * [UIScreen mainScreen].scale) contentMode:PHImageContentModeDefault options:options resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
+        if (self.row == indexPath.row) {
+            self.photoImageView.image = result;
+        }
+    }];
+}
+//    PHImageRequestOptions *option = [[PHImageRequestOptions alloc]init];
+//    option.resizeMode = PHImageRequestOptionsResizeModeFast;
+//    option.synchronous = YES;
+//    PHAsset * phAsset = model.imageAsset;
+//    [[PHImageManager defaultManager] requestImageForAsset:phAsset targetSize:PHImageManagerMaximumSize contentMode:PHImageContentModeDefault options:option resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
+//        image = [self fixOrientation:result];
+//        if (image) {
+//            handler(true,image);
+//        }
+//    }];
+#pragma mark - 点击事件
+-(void)selectPhoto:(UIButton *)button {
+    if (self.selectPhotoAction) {
+        self.selectPhotoAction(self.asset);
+    }
+}
+
+#pragma mark - Get方法
+-(UIImageView *)photoImageView {
+    if (!_photoImageView) {
+        _photoImageView = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, ([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f, ([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f)];
+        _photoImageView.contentMode = UIViewContentModeScaleAspectFill;
+        _photoImageView.layer.masksToBounds = YES;
+        
+        [self.contentView addSubview:_photoImageView];
+    }
+    
+    return _photoImageView;
+}
+
+//-(UIButton *)selectButton {
+//    if (!_selectButton) {
+//        _selectButton = [UIButton buttonWithType:UIButtonTypeCustom];
+//        _selectButton.layer.borderColor = [UIColor whiteColor].CGColor;
+//        _selectButton.layer.borderWidth = 1.f;
+//        _selectButton.layer.cornerRadius = 12.5f;
+//        _selectButton.layer.masksToBounds = YES;
+//        [_selectButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+//        [_selectButton addTarget:self action:@selector(selectPhoto:) forControlEvents:UIControlEventTouchUpInside];
+//
+//        [self.contentView addSubview:_selectButton];
+//        _selectButton.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f - 29, 3, 25, 25);
+//    }
+//
+//    return _selectButton;
+//}
+
+-(UIView *)translucentView {
+    if (!_translucentView) {
+        _translucentView = [[UIView alloc] init];
+        _translucentView.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0 alpha:0.2];
+        
+        [self.contentView addSubview:_translucentView];
+        _translucentView.frame = CGRectMake(0, 0, ([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f, ([UIScreen mainScreen].bounds.size.width - 20.f) / 3.f);
+        _translucentView.hidden = YES;
+    }
+    
+    return _translucentView;
+}
+@end
+
+
+@implementation ImagePickAlbumModel
+-(void)setCollection:(PHAssetCollection *)collection {
+    _collection = collection;
+    
+    if ([collection.localizedTitle isEqualToString:@"All Photos"]) {
+        self.collectionTitle = @"全部相册";
+    } else {
+        self.collectionTitle = collection.localizedTitle;
+    }
+    
+    self.collectionTitle = collection.localizedTitle;
+    
+    // 获得某个相簿中的所有PHAsset对象
+    self.assets = [PHAsset fetchAssetsInAssetCollection:collection options:nil];
+    
+    if (self.assets.count > 0) {
+        self.firstAsset = self.assets[0];
+    }
+    self.collectionNumber = [NSString stringWithFormat:@"%ld", self.assets.count];
+}
+
+@end
+
+
+
+typedef void(^AlbumViewSelectAction)(ImagePickAlbumModel *albumModel);
+@interface pickShowView ()
+
+@property (nonatomic, strong) NSMutableArray<ImagePickAlbumModel *> *assetCollectionList;
+
+@property (nonatomic, strong) UIButton *greyTransparentButton;
+
+@property (nonatomic, strong) UIView *tableViewBackgroundView;
+@property (nonatomic, strong) imagePickTableView *tableView;
+
+@property (nonatomic, assign) CGFloat presentHeight;
+
+@property (nonatomic, assign) CGFloat navigationBarMaxY;
+
+@property (nonatomic, copy) AlbumViewSelectAction selectAction;
+
+@end
+
+@implementation pickShowView
+
+
++(void)showAlbumView:(NSMutableArray<ImagePickAlbumModel *> *)assetCollectionList navigationBarMaxY:(CGFloat)navigationBarMaxY complete:(void(^)(ImagePickAlbumModel *albumModel))complete {
+    pickShowView *albumView = [[pickShowView alloc] init];
+    
+    albumView.navigationBarMaxY = navigationBarMaxY;
+    albumView.selectAction = complete;
+    albumView.assetCollectionList = assetCollectionList;
+}
+
+-(instancetype)init {
+    if (self = [super init]) {
+        [self setupAlbumView];
+    }
+    
+    return self;
+}
+
+-(void)setupAlbumView {
+    self.frame = CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height);
+    [[[[UIApplication sharedApplication] windows] firstObject] addSubview:self];
+    
+    [self greyTransparentButton];
+    [self tableView];
+}
+-(void)showAnimate {
+    [self layoutIfNeeded];
+    
+    __weak typeof(self) weakSelf = self;
+    [UIView animateWithDuration:0.5 delay:0 usingSpringWithDamping:0.75 initialSpringVelocity:5 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        weakSelf.greyTransparentButton.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0 alpha:0.2];
+        weakSelf.tableViewBackgroundView.frame = CGRectMake(0, self.navigationBarMaxY, [UIScreen mainScreen].bounds.size.width, weakSelf.presentHeight);
+    } completion:^(BOOL finished) {}];
+}
+-(void)endAnimate {
+    __weak typeof(self) weakSelf = self;
+    [UIView animateWithDuration:0.3 animations:^{
+        weakSelf.greyTransparentButton.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0 alpha:0];
+        weakSelf.tableViewBackgroundView.frame = CGRectMake(0, self.navigationBarMaxY, [UIScreen mainScreen].bounds.size.width, 0.00001);
+    } completion:^(BOOL finished) {
+        [weakSelf removeFromSuperview];
+    }];
+}
+-(void)setAssetCollectionList:(NSMutableArray<ImagePickAlbumModel *> *)assetCollectionList {
+    _assetCollectionList = assetCollectionList;
+
+    self.presentHeight = assetCollectionList.count * 80.f;
+    if (self.presentHeight > 400.f) {
+        self.presentHeight = 400.f;
+    }
+    
+    self.tableViewBackgroundView.frame = CGRectMake(0, self.navigationBarMaxY, [UIScreen mainScreen].bounds.size.width, 0.0001);
+    
+    self.tableView.assetCollectionList = assetCollectionList;
+    CGRect tableViewFrame = self.tableView.frame;
+    tableViewFrame.size = CGSizeMake(tableViewFrame.size.width, self.presentHeight);
+    self.tableView.frame = tableViewFrame;
+    
+    __weak typeof(self) weakSelf = self;
+    self.tableView.selectAction = ^(ImagePickAlbumModel *albumModel) {
+        if (weakSelf.selectAction) {
+            weakSelf.selectAction(albumModel);
+        }
+        
+        [weakSelf endAnimate];
+    };
+    
+    [self showAnimate];
+}
+
+-(void)clickCancel:(UIButton *)button {
+    if (self.selectAction) {
+        self.selectAction(nil);
+    }
+    [self endAnimate];
+}
+
+-(imagePickTableView *)tableView {
+    if (!_tableView) {
+        _tableView = [[imagePickTableView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height) style:UITableViewStylePlain];
+        
+        [self.tableViewBackgroundView addSubview:_tableView];
+    }
+    
+    return _tableView;
+}
+
+-(UIView *)tableViewBackgroundView {
+    if (!_tableViewBackgroundView) {
+        _tableViewBackgroundView = [[UIView alloc] init];
+        _tableViewBackgroundView.backgroundColor = [UIColor whiteColor];
+        _tableViewBackgroundView.layer.masksToBounds = YES;
+        
+        [self addSubview:_tableViewBackgroundView];
+    }
+    
+    return _tableViewBackgroundView;
+}
+
+-(UIButton *)greyTransparentButton {
+    if (!_greyTransparentButton) {
+        _greyTransparentButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        _greyTransparentButton.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0 alpha:0];
+        [_greyTransparentButton addTarget:self action:@selector(clickCancel:) forControlEvents:UIControlEventTouchUpInside];
+        
+        [self addSubview:_greyTransparentButton];
+        
+        _greyTransparentButton.frame = CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height);
+    }
+    
+    return _greyTransparentButton;
+}
+
+
+@end
+
+
+@interface imagePickTableView ()<UITableViewDelegate,UITableViewDataSource>
+
+@end
+static NSString *albumTableViewCell = @"FAlbumTableViewCell";
+@implementation imagePickTableView
+
+-(instancetype)initWithFrame:(CGRect)frame style:(UITableViewStyle)style {
+    if (self = [super initWithFrame:frame style:style]) {
+        [self setupTableView];
+    }
+    
+    return self;
+}
+
+
+-(void)setupTableView {
+    [self registerClass:[imagePickCell class] forCellReuseIdentifier:albumTableViewCell];
+    
+    self.delegate = self;
+    self.dataSource = self;
+    
+    self.tableFooterView = [UIView new];
+}
+
+-(void)setAssetCollectionList:(NSMutableArray<ImagePickAlbumModel *> *)assetCollectionList {
+    _assetCollectionList = assetCollectionList;
+    
+    [self reloadData];
+}
+
+#pragma mark - UITableViewDataSource / UITableViewDelegate
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.assetCollectionList.count;
+}
+
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    imagePickCell *cell = [tableView dequeueReusableCellWithIdentifier:albumTableViewCell];
+    
+    cell.row = indexPath.row;
+    cell.albumModel = self.assetCollectionList[indexPath.row];
+    [cell loadImage:indexPath];
+    
+    return cell;
+}
+
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.selectAction) {
+        self.selectAction(self.assetCollectionList[indexPath.row]);
+    }
+}
+
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 80.f;
+}
+
+@end
+
+@interface imagePickCell()
+
+@property (nonatomic, strong) UIImageView *albumImageView;
+
+@property (nonatomic, strong) UILabel *albumNameLabel;
+
+@property (nonatomic, strong) UILabel *albumNumberLabel;
+
+@end
+
+@implementation imagePickCell
+
+-(instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
+    if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) {
+        [self setupCell];
+    }
+    
+    return self;
+}
+
+-(void)setupCell {
+    self.selectionStyle = UITableViewCellSelectionStyleNone;
+    
+    self.albumImageView.frame = CGRectMake(15, 5, 70, 70);
+    self.albumNameLabel.frame = CGRectMake(95, 15, 200, 20);
+    self.albumNumberLabel.frame = CGRectMake(95, 40, 200, 20);
+}
+
+-(void)setAlbumModel:(ImagePickAlbumModel *)albumModel {
+    _albumModel = albumModel;
+    
+    self.albumNameLabel.text = albumModel.collectionTitle;
+    self.albumNumberLabel.text = albumModel.collectionNumber;
+}
+
+-(void)loadImage:(NSIndexPath *)index {
+    PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+    // 同步获得图片, 只会返回1张图片
+    options.synchronous = YES;
+    __weak typeof(self) weakSelf = self;
+    [[PHCachingImageManager defaultManager] requestImageForAsset:self.albumModel.firstAsset targetSize:CGSizeMake([UIScreen mainScreen].bounds.size.width / 2, [UIScreen mainScreen].bounds.size.width / 2) contentMode:PHImageContentModeDefault options:options resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
+        if (weakSelf.row == index.row) {
+            weakSelf.albumImageView.image = result;
+        }
+    }];
+}
+
+-(UIImageView *)albumImageView {
+    if (!_albumImageView) {
+        _albumImageView = [[UIImageView alloc] init];
+        _albumImageView.contentMode = UIViewContentModeScaleAspectFill;
+        _albumImageView.layer.masksToBounds = YES;
+        
+        [self.contentView addSubview:_albumImageView];
+    }
+    
+    return _albumImageView;
+}
+
+-(UILabel *)albumNameLabel {
+    if (!_albumNameLabel) {
+        _albumNameLabel = [[UILabel alloc] init];
+        _albumNameLabel.font = [UIFont systemFontOfSize:16];
+        
+        [self.contentView addSubview:_albumNameLabel];
+    }
+    
+    return _albumNameLabel;
+}
+
+-(UILabel *)albumNumberLabel {
+    if (!_albumNumberLabel) {
+        _albumNumberLabel = [[UILabel alloc] init];
+        _albumNumberLabel.font = [UIFont systemFontOfSize:12];
+        _albumNumberLabel.textColor = [UIColor lightTextColor];
+        
+        [self.contentView addSubview:_albumNumberLabel];
+    }
+    
+    return _albumNumberLabel;
+}
+
+@end
+
+
+
+@interface SGPicAuthorView ()
+@property (nonatomic,strong) UIButton *setButton;
+@property (nonatomic,strong) UILabel *tipsLabel;
+@end
+
+@implementation SGPicAuthorView
+
+-(UIButton *)setButton{
+    if (!_setButton) {
+        _setButton = [UIButton buttonWithType:UIButtonTypeCustom];
+//        RGB(30, 174, 163)
+        [_setButton setBackgroundColor:[UIColor colorWithRed:30.f/255.f green:174.f/255.f blue:163.f/255.f alpha:1.0]];
+        [_setButton setTitle:@"Setting" forState:UIControlStateNormal];
+        [_setButton addTarget:self action:@selector(set) forControlEvents:UIControlEventTouchUpInside];
+    }
+    return _setButton;
+}
+-(UILabel *)tipsLabel{
+    if (!_tipsLabel) {
+        _tipsLabel = [[UILabel alloc] init];
+        _tipsLabel.text = @"请在iPhone的'设置-隐私-照片'选项中允许Sango访问你的相册";
+        _tipsLabel.numberOfLines = 0;
+        _tipsLabel.font = [UIFont systemFontOfSize:14];
+        _tipsLabel.textColor = [UIColor blackColor];
+    }
+    return _tipsLabel;
+}
+-(instancetype)initWithFrame:(CGRect)frame{
+    if (self = [super initWithFrame:frame]) {
+        [self addSubview:self.setButton];
+        [self addSubview:self.tipsLabel];
+        [self.setButton mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.centerX.centerY.equalTo(@0);
+            make.width.equalTo(@80);
+            make.height.equalTo(@35);
+        }];
+        [self.tipsLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.bottom.equalTo(self.setButton.mas_top).offset(20);
+            make.centerX.equalTo(@0);
+            make.left.equalTo(@20);
+            make.right.equalTo(@-20);
+        }];
+    }
+    return self;
+}
+
+-(void)awakeFromNib{
+    [super awakeFromNib];
+    [self.setButton setTitle:@"Setting" forState:UIControlStateNormal];
+//    self.tipsLabel.text = kgetLocalText(@"Allow %@ to access your album in \"Settings -> Privacy -> Photos\"");
+}
+//Allow %@ to access your album in \"Settings -> Privacy -> Photos\""
+- (void)set{
+     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
+}
 
 @end

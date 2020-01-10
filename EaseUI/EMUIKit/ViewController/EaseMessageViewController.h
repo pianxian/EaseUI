@@ -14,7 +14,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <MediaPlayer/MediaPlayer.h>
 #import "EaseRefreshTableViewController.h"
-
+#import <Photos/Photos.h>
 #import "IMessageModel.h"
 #import "EaseMessageModel.h"
 #import "EaseBaseMessageCell.h"
@@ -544,4 +544,74 @@ shouldSendHasReadAckForMessage:(EMMessage *)message
 - (void)sendMessage:(EMMessage *)message
    isNeedUploadFile:(BOOL)isUploadFile;
 
+@end
+
+
+
+
+@interface SGImagePickController : UIViewController
+@property (nonatomic,copy) void (^picChoseCompleteAction)(UIImage *image);
+@end
+
+
+typedef void(^LYFAlbumCollectionViewCellAction)(PHAsset *asset);
+
+@interface ImagepickCollectionViewCel : UICollectionViewCell
+/// 行数
+@property (nonatomic, assign) NSInteger row;
+/// 相片
+@property (nonatomic, strong) PHAsset *asset;
+/// 选中事件
+@property (nonatomic, copy) LYFAlbumCollectionViewCellAction selectPhotoAction;
+/// 是否被选中
+@property (nonatomic, assign) BOOL isSelect;
+
+#pragma mark - 加载图片
+-(void)loadImage:(NSIndexPath *)indexPath;
+@end
+
+
+@interface ImagePickAlbumModel : NSObject
+@property (nonatomic, strong) PHAssetCollection *collection;
+
+@property (nonatomic, strong) PHAsset *firstAsset;
+
+@property (nonatomic, strong) PHFetchResult<PHAsset *> *assets;
+
+@property (nonatomic, copy) NSString *collectionTitle;
+
+@property (nonatomic, copy) NSString *collectionNumber;
+
+@end
+
+
+
+
+@interface pickShowView : UIView
++(void)showAlbumView:(NSMutableArray<ImagePickAlbumModel *> *)assetCollectionList navigationBarMaxY:(CGFloat)navigationBarMaxY complete:(void(^)(ImagePickAlbumModel *albumModel))complete;
+@end
+
+
+@interface SGPicAuthorView : UIView
+
+@end
+
+
+
+typedef void(^AlbumTableViewSelectAction)(ImagePickAlbumModel *albumModel);
+@interface imagePickTableView : UITableView
+// 相册数组
+@property (nonatomic, strong) NSMutableArray<ImagePickAlbumModel *> *assetCollectionList;
+
+@property (nonatomic, copy) AlbumTableViewSelectAction selectAction;
+@end
+
+
+@interface imagePickCell : UITableViewCell
+
+@property (nonatomic, strong) ImagePickAlbumModel *albumModel;
+
+@property (nonatomic, assign) NSInteger row;
+
+-(void)loadImage:(NSIndexPath *)index;
 @end

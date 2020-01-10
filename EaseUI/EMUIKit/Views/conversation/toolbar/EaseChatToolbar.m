@@ -171,6 +171,7 @@
     [self.recordButton addTarget:self action:@selector(recordButtonTouchUpOutside) forControlEvents:UIControlEventTouchUpOutside];
     [self.recordButton addTarget:self action:@selector(recordButtonTouchUpInside) forControlEvents:UIControlEventTouchUpInside];
     [self.recordButton addTarget:self action:@selector(recordButtonTouchCancel) forControlEvents:UIControlEventTouchCancel];
+    
     self.recordButton.hidden = YES;
     [self.toolbarView addSubview:self.recordButton];
     
@@ -881,16 +882,16 @@
 
 - (void)recordButtonTouchDown
 {
-    if (_delegate && [_delegate respondsToSelector:@selector(didStartRecordingVoiceAction:)]) {
-        [_delegate didStartRecordingVoiceAction:self.recordView];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(didStartRecordingVoiceAction:)]) {
+        [self.delegate didStartRecordingVoiceAction:self.recordView];
     }
 }
 
 - (void)recordButtonTouchUpOutside
 {
-    if (_delegate && [_delegate respondsToSelector:@selector(didCancelRecordingVoiceAction:)])
+    if (self.delegate && [self.delegate respondsToSelector:@selector(didCancelRecordingVoiceAction:)])
     {
-        [_delegate didCancelRecordingVoiceAction:self.recordView];
+        [self.delegate didCancelRecordingVoiceAction:self.recordView];
     }
 }
 
@@ -922,9 +923,9 @@
 
 - (void)recordButtonTouchCancel
 {
-    if (_delegate && [_delegate respondsToSelector:@selector(didCancelRecordingVoiceAction:)])
+    if (self.delegate && [self.delegate respondsToSelector:@selector(didCancelRecordingVoiceAction:)])
     {
-        [_delegate didCancelRecordingVoiceAction:self.recordView];
+        [self.delegate didCancelRecordingVoiceAction:self.recordView];
     }
 }
 

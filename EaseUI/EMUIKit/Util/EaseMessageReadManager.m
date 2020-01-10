@@ -147,9 +147,52 @@ static EaseMessageReadManager *detailInstance = nil;
         self.photos = photoArray;
     }
     
-    UIViewController *rootController = [self.keyWindow rootViewController];
-    [rootController presentViewController:self.photoNavigationController animated:YES completion:nil];
+//    UIViewController *rootController = [self.keyWindow rootViewController];
+    [[self topMostViewController] presentViewController:self.photoNavigationController animated:YES completion:nil];
 }
+-(UIWindow *)mainWindow{
+    id appDelegate = [UIApplication sharedApplication].delegate;
+    if (appDelegate && [appDelegate respondsToSelector:@selector(window)]) {
+        return [appDelegate window];
+    }
+    
+    NSArray *windows = [UIApplication sharedApplication].windows;
+    if ([windows count] == 1) {
+        return [windows firstObject];
+    }
+    else {
+        for (UIWindow *window in windows) {
+            if (window.windowLevel == UIWindowLevelNormal) {
+                return window;
+            }
+        }
+    }
+    return nil;
+}
+-(UIViewController *)topMostViewController{
+    UIViewController *topViewController = [self mainWindow].rootViewController;
+    UIViewController *temp = nil;
+    while (YES) {
+        temp = nil;
+        if ([topViewController isKindOfClass:[UINavigationController class]]) {
+            temp = ((UINavigationController *)topViewController).visibleViewController;
+            
+        } else if ([topViewController isKindOfClass:[UITabBarController class]]) {
+            temp = ((UITabBarController *)topViewController).selectedViewController;
+        }
+        else if (topViewController.presentedViewController != nil) {
+            temp = topViewController.presentedViewController;
+        }
+        if (temp != nil) {
+            topViewController = temp;
+        } else {
+            break;
+        }
+    }
+    return topViewController;
+}
+
+
 
 - (BOOL)prepareMessageAudioModel:(EaseMessageModel *)messageModel
                       updateViewCompletion:(void (^)(EaseMessageModel *prevAudioModel, EaseMessageModel *currentAudioModel))updateCompletion
