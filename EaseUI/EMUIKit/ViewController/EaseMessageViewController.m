@@ -114,6 +114,7 @@ typedef enum : NSUInteger {
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view.
+  
     self.view.backgroundColor = [UIColor colorWithRed:248 / 255.0 green:248 / 255.0 blue:248 / 255.0 alpha:1.0];
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     
@@ -849,6 +850,20 @@ typedef enum : NSUInteger {
 - (void)_imageMessageCellSelected:(id<IMessageModel>)model
 {
     __weak EaseMessageViewController *weakSelf = self;
+    
+    
+    NSMutableArray *datas = [NSMutableArray array];
+    [self.dataArray enumerateObjectsUsingBlock:^(id   _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if (![obj isKindOfClass:[NSString class]]) {
+            EaseMessageModel *msgModel = (EaseMessageModel *)obj;
+            if (msgModel.message.body.type ==EMMessageBodyTypeImage ) {
+                [datas addObject:msgModel];
+            }
+        }
+
+    }];
+    
+    
     EMImageMessageBody *imageBody = (EMImageMessageBody*)[model.message body];
     
     BOOL isCustomDownload = !([EMClient sharedClient].options.isAutoTransferMessageAttachments);
@@ -1535,6 +1550,15 @@ typedef enum : NSUInteger {
                  {
                      if (error) {
                          _isRecording = NO;
+//                      [[EMCDDeviceManager sharedInstance] cancelCurrentRecording];
+//                            if ([self.delegate respondsToSelector:@selector(messageViewController:didSelectRecordView:withEvenType:)]) {
+//                                [self.delegate messageViewController:self didSelectRecordView:recordView withEvenType:EaseRecordViewTypeTouchUpOutside];
+//                            } else {
+//                                if ([self.recordView isKindOfClass:[EaseRecordView class]]) {
+//                                    [(EaseRecordView *)self.recordView recordButtonTouchUpOutside];
+//                                }
+//                                [self.recordView removeFromSuperview];
+//                            }
                      }
                  }];
                 
@@ -1569,6 +1593,7 @@ typedef enum : NSUInteger {
         _isRecording = NO;
     }
 }
+
 
 - (void)didFinishRecoingVoiceAction:(UIView *)recordView
 {

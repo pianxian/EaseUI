@@ -17,7 +17,6 @@
 #import "EaseEmotionEscape.h"
 #import "EaseEmotionManager.h"
 #import "EaseLocalDefine.h"
-
 @interface EaseChatToolbar()<UITextViewDelegate, EMFaceDelegate>
 
 @property (nonatomic) CGFloat version;
@@ -112,6 +111,7 @@
  */
 - (void)_setupSubviews
 {
+     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(recordFinish) name:@"recordFinish" object:nil];
     //backgroundImageView
     _backgroundImageView = [[UIImageView alloc] initWithFrame:self.bounds];
     _backgroundImageView.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
@@ -170,6 +170,8 @@
     [self.recordButton addTarget:self action:@selector(recordButtonTouchDragEnter) forControlEvents:UIControlEventTouchDragEnter];
     [self.recordButton addTarget:self action:@selector(recordButtonTouchUpOutside) forControlEvents:UIControlEventTouchUpOutside];
     [self.recordButton addTarget:self action:@selector(recordButtonTouchUpInside) forControlEvents:UIControlEventTouchUpInside];
+//    [self.recordButton addTarget:self action:@selector(recordTouchDragInside) forControlEvents:UIControlEventTouchDragInside];
+//    [self.recordButton addTarget:self action:@selector(recordTouchDragOutside) forControlEvents:UIControlEventTouchDragOutside];
     [self.recordButton addTarget:self action:@selector(recordButtonTouchCancel) forControlEvents:UIControlEventTouchCancel];
     
     self.recordButton.hidden = YES;
@@ -879,7 +881,12 @@
         [self.inputTextView becomeFirstResponder];
     }
 }
-
+-(void)recordFinish{
+    dispatch_async(dispatch_get_main_queue(), ^{
+           [self recordButtonTouchUpInside];
+    });
+ 
+}
 - (void)recordButtonTouchDown
 {
     if (self.delegate && [self.delegate respondsToSelector:@selector(didStartRecordingVoiceAction:)]) {
