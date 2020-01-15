@@ -92,7 +92,7 @@
                                 title:NSLocalizedString(@"im.album", nil)];
 
     _photoButton.accessibilityIdentifier = @"image";
-    [_photoButton setFrame:CGRectMake(insets, 10, CHAT_BUTTON_SIZE.width , CHAT_BUTTON_SIZE.height)];
+    [_photoButton setFrame:CGRectMake(insets, 20, CHAT_BUTTON_SIZE.width , CHAT_BUTTON_SIZE.height)];
     [_photoButton addTarget:self action:@selector(photoAction) forControlEvents:UIControlEventTouchUpInside];
     _photoButton.tag = MOREVIEW_BUTTON_TAG;
     [_scrollview addSubview:_photoButton];
@@ -110,7 +110,7 @@
                        highlightedImage:[UIImage imageNamed:@"EaseUIResource.bundle/chatBar_colorMore_cameraSelected"]
                                   title:NSLocalizedString(@"im.takephoto", nil)];
 //    [_takePicButton setFrame:CGRectMake(insets * 3 + CHAT_BUTTON_SIZE.width * 2, 10, CHAT_BUTTON_SIZE.width , CHAT_BUTTON_SIZE.height)];
-    [_takePicButton setFrame:CGRectMake(insets * 2 + CHAT_BUTTON_SIZE.width, 10, CHAT_BUTTON_SIZE.width , CHAT_BUTTON_SIZE.height)];
+    [_takePicButton setFrame:CGRectMake(insets * 2 + CHAT_BUTTON_SIZE.width, 20, CHAT_BUTTON_SIZE.width , CHAT_BUTTON_SIZE.height)];
 
     [_takePicButton addTarget:self action:@selector(takePicAction) forControlEvents:UIControlEventTouchUpInside];
     _takePicButton.tag = MOREVIEW_BUTTON_TAG + 2;
